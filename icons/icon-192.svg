@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e94560"/>
+      <stop offset="100%" style="stop-color:#0f3460"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="38" fill="url(#g)"/>
+  <!-- Stage lines -->
+  <rect x="28" y="105" width="134" height="15" rx="3" fill="rgba(255,255,255,0.3)"/>
+  <!-- Dancer dots -->
+  <circle cx="57" cy="72" r="13" fill="#fff" opacity="0.9"/>
+  <circle cx="96" cy="53" r="13" fill="#fff" opacity="0.9"/>
+  <circle cx="134" cy="72" r="13" fill="#fff" opacity="0.9"/>
+  <circle cx="38" cy="92" r="11" fill="#c77dff" opacity="0.8"/>
+  <circle cx="153" cy="92" r="11" fill="#c77dff" opacity="0.8"/>
+  <!-- Music note hint -->
+  <text x="96" y="149" text-anchor="middle" font-size="30" fill="rgba(255,255,255,0.6)">♪</text>
+</svg>
