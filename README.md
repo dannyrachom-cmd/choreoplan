@@ -1,2 +1,0 @@
-# choreoplan
-plan your choreogrpy
