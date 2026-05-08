@@ -8,36 +8,20 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="ChoreoPlan">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="description" content="תכנון כוראוגרפיה עם מוסיקה, קיואים ואנימציה">
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.svg">
-  <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
+  <link rel="apple-touch-icon" href="icons/icon-180.svg">
+  <link rel="icon" href="icons/icon-192.svg">
   <title>ChoreoPlan</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body, #root {
-      height: 100%; height: 100dvh;
-      overflow: hidden; background: #06080f;
-      -webkit-tap-highlight-color: transparent;
-    }
-    body {
-      padding-top: env(safe-area-inset-top);
-      padding-bottom: env(safe-area-inset-bottom);
-      padding-left: env(safe-area-inset-left);
-      padding-right: env(safe-area-inset-right);
-    }
-    #loading {
-      position: fixed; inset: 0; background: #06080f;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      font-family: system-ui, sans-serif;
-      gap: 16px; z-index: 9999;
-    }
-    .logo { font-size: 52px; }
-    .title { font-size: 26px; font-weight: 800; color: #fff; }
-    .sub { font-size: 11px; color: #3a5070; letter-spacing: 3px; }
-    .bar { width: 180px; height: 3px; background: #1a2540; border-radius: 2px; overflow: hidden; }
-    .fill { height: 100%; background: linear-gradient(90deg,#e94560,#c77dff); animation: ld 1.2s ease-in-out infinite; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html,body,#root { height:100%; height:100dvh; overflow:hidden; background:#06080f; -webkit-tap-highlight-color:transparent; }
+    body { padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+    #loading { position:fixed; inset:0; background:#06080f; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:9999; }
+    .logo { font-size:52px; }
+    .title { font-size:26px; font-weight:800; color:#fff; font-family:system-ui; }
+    .sub { font-size:11px; color:#3a5070; letter-spacing:3px; font-family:system-ui; }
+    .bar { width:180px; height:3px; background:#1a2540; border-radius:2px; overflow:hidden; }
+    .fill { height:100%; background:linear-gradient(90deg,#e94560,#c77dff); animation:ld 1.2s ease-in-out infinite; }
     @keyframes ld { 0%{width:0%} 60%{width:85%} 100%{width:100%} }
   </style>
 </head>
@@ -49,12 +33,10 @@
     <div class="bar"><div class="fill"></div></div>
   </div>
   <div id="root"></div>
-
   <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
-
+  <!-- Pre-compiled app -->
   <script>
-/* React hooks from global */
 const {
   useState,
   useRef,
@@ -394,6 +376,137 @@ function ChoreoPlan() {
   useEffect(() => {
     activeKfRef.current = activeKf;
   }, [activeKf]);
+
+  // ── Projects (save/load) ─────────────────────────────────────────────────
+  const [projects, setProjects] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('choreoplan_projects') || '[]');
+    } catch (e) {
+      return [];
+    }
+  });
+  const [showProjects, setShowProjects] = useState(false);
+  const [projectName, setProjectName] = useState("פרויקט חדש");
+  const saveProject = () => {
+    const proj = {
+      id: Date.now(),
+      name: projectName,
+      date: new Date().toLocaleDateString('he-IL'),
+      stagePresetId: stagePreset.id,
+      customW,
+      customH,
+      dancerCount,
+      formation,
+      stageDancers: stageDancers.map(d => ({
+        ...d
+      })),
+      editDancers: editDancers.map(d => ({
+        ...d
+      })),
+      keyframes: keyframes.map(kf => ({
+        ...kf,
+        dancers: kf.dancers.map(d => ({
+          ...d
+        }))
+      }))
+    };
+    const updated = [proj, ...projects.slice(0, 19)]; // keep last 20
+    setProjects(updated);
+    try {
+      localStorage.setItem('choreoplan_projects', JSON.stringify(updated));
+    } catch (e) {}
+    setShowProjects(false);
+  };
+  const loadProject = proj => {
+    const sp = STAGE_PRESETS.find(s => s.id === proj.stagePresetId) || STAGE_PRESETS[0];
+    setStagePreset(sp);
+    if (proj.customW) setCustomW(proj.customW);
+    if (proj.customH) setCustomH(proj.customH);
+    setDancerCount(proj.dancerCount || proj.editDancers?.length || 8);
+    setFormation(proj.formation || 'circle');
+    const dancers = (proj.editDancers || proj.stageDancers || []).map(d => ({
+      ...d
+    }));
+    setStageDancers(dancers);
+    setEditDancers(dancers);
+    setRenderDancers(dancers);
+    const kfs = (proj.keyframes || []).map(kf => ({
+      ...kf,
+      dancers: kf.dancers.map(d => ({
+        ...d
+      }))
+    }));
+    keyframesRef.current = kfs.sort((a, b) => a.time - b.time);
+    setKeyframes(kfs);
+    setActiveKf(null);
+    setSelectedId(null);
+    setHasUnsaved(false);
+    setProjectName(proj.name);
+    setShowProjects(false);
+  };
+  const deleteProject = (id, e) => {
+    e.stopPropagation();
+    const updated = projects.filter(p => p.id !== id);
+    setProjects(updated);
+    try {
+      localStorage.setItem('choreoplan_projects', JSON.stringify(updated));
+    } catch (e2) {}
+  };
+  const exportProject = () => {
+    const proj = {
+      name: projectName,
+      date: new Date().toLocaleDateString('he-IL'),
+      stagePresetId: stagePreset.id,
+      customW,
+      customH,
+      dancerCount,
+      formation,
+      stageDancers: stageDancers.map(d => ({
+        ...d
+      })),
+      editDancers: editDancers.map(d => ({
+        ...d
+      })),
+      keyframes: keyframes.map(kf => ({
+        ...kf,
+        dancers: kf.dancers.map(d => ({
+          ...d
+        }))
+      }))
+    };
+    const blob = new Blob([JSON.stringify(proj, null, 2)], {
+      type: 'application/json'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = projectName.replace(/\s+/g, '_') + '.choreo';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const importProject = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const proj = JSON.parse(ev.target.result);
+        loadProject(proj);
+        const updated = [{
+          ...proj,
+          id: Date.now()
+        }, ...projects.slice(0, 19)];
+        setProjects(updated);
+        try {
+          localStorage.setItem('choreoplan_projects', JSON.stringify(updated));
+        } catch (e2) {}
+      } catch (e2) {
+        alert('קובץ לא תקין');
+      }
+    };
+    reader.readAsText(file);
+  };
+  const importRef = useRef(null);
 
   // ── Web Audio API engine (no HTML <audio> needed) ────────────────────────
   const [fileName, setFileName] = useState("");
@@ -973,19 +1086,21 @@ function ChoreoPlan() {
   }, t === "stage" ? "🎪 במה" : t === "dancers" ? "💃 רקדנים" : "🎵 מוסיקה"))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      gap: 7,
-      alignItems: "center"
+      gap: 6,
+      alignItems: "center",
+      flexShrink: 0
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, !isMobile && /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 10,
+      fontSize: 9,
       color: "#2a4060",
-      padding: "4px 9px",
+      padding: "3px 7px",
       background: "#0d1117",
-      borderRadius: 6,
-      border: "1px solid #1a2540"
+      borderRadius: 5,
+      border: "1px solid #1a2540",
+      whiteSpace: "nowrap"
     }
-  }, stage.label, " ", stage.w, "\xD7", stage.h, "m | ", dancerCount, "\uD83D\uDC64 | ", keyframes.length, "Q"), /*#__PURE__*/React.createElement("button", {
+  }, stage.w, "\xD7", stage.h, "m \xB7 ", editDancers.length, "\uD83D\uDC64 \xB7 ", keyframes.length, "Q"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       const nm = mode === "edit" ? "preview" : "edit";
       setMode(nm);
@@ -999,7 +1114,7 @@ function ChoreoPlan() {
       }
     },
     style: {
-      padding: "6px 14px",
+      padding: "6px 11px",
       borderRadius: 7,
       border: "none",
       background: mode === "preview" ? "linear-gradient(135deg,#00b09b,#007055)" : "#1a2540",
@@ -1007,9 +1122,10 @@ function ChoreoPlan() {
       fontWeight: 700,
       fontSize: 11,
       cursor: "pointer",
-      boxShadow: mode === "preview" ? "0 0 10px #00b09b55" : "none"
+      boxShadow: mode === "preview" ? "0 0 10px #00b09b55" : "none",
+      whiteSpace: "nowrap"
     }
-  }, mode === "preview" ? "✏️ עריכה" : "👁 תצוגה"))), /*#__PURE__*/React.createElement("div", {
+  }, mode === "preview" ? "✏️" : "👁", !isMobile && (mode === "preview" ? " עריכה" : " תצוגה")))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flex: 1,
@@ -1030,7 +1146,38 @@ function ChoreoPlan() {
       transition: "width .2s",
       touchAction: "pan-y"
     }
-  }, tab === "stage" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 4
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowProjects(p => !p),
+    style: {
+      width: "100%",
+      padding: "9px 12px",
+      borderRadius: 9,
+      border: "1px solid",
+      borderColor: showProjects ? "#f5a623" : "#2a3a50",
+      background: showProjects ? "#1a1000" : "#0d1117",
+      color: showProjects ? "#f5a623" : "#8a9ab0",
+      fontWeight: 700,
+      fontSize: 12,
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 15
+    }
+  }, "\uD83D\uDCBE"), /*#__PURE__*/React.createElement("span", null, "\u05E4\u05E8\u05D5\u05D9\u05E7\u05D8\u05D9\u05DD"), projects.length > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      marginRight: "auto",
+      fontSize: 10,
+      color: "#f5a62388"
+    }
+  }, "(", projects.length, ")"))), tab === "stage" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: "#e94560",
@@ -2885,38 +3032,242 @@ function ChoreoPlan() {
       fontWeight: 700,
       textAlign: "center"
     }
-  }, "\u23ED ", nextCue.label, " \u05D1\u05E2\u05D5\u05D3 ", timeToNext?.toFixed(1), "\u05E9\u05C1"))));
+  }, "\u23ED ", nextCue.label, " \u05D1\u05E2\u05D5\u05D3 ", timeToNext?.toFixed(1), "\u05E9\u05C1"))), showProjects && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "#000a",
+      zIndex: 100,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 20
+    },
+    onClick: () => setShowProjects(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      background: "#0b0f1a",
+      borderRadius: 14,
+      border: "1px solid #1a2540",
+      width: "100%",
+      maxWidth: 480,
+      maxHeight: "80vh",
+      display: "flex",
+      flexDirection: "column",
+      boxShadow: "0 20px 60px #000c",
+      overflow: "hidden"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "14px 18px",
+      borderBottom: "1px solid #1a2540",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 14,
+      fontWeight: 800,
+      color: "#fff"
+    }
+  }, "\uD83D\uDCBE \u05E4\u05E8\u05D5\u05D9\u05E7\u05D8\u05D9\u05DD \u05E9\u05DE\u05D5\u05E8\u05D9\u05DD"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowProjects(false),
+    style: {
+      width: 26,
+      height: 26,
+      borderRadius: "50%",
+      border: "none",
+      background: "#1a2540",
+      color: "#aaa",
+      cursor: "pointer",
+      fontSize: 14
+    }
+  }, "\xD7")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "12px 18px",
+      borderBottom: "1px solid #1a2540",
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: projectName,
+    onChange: e => setProjectName(e.target.value),
+    placeholder: "\u05E9\u05DD \u05D4\u05E4\u05E8\u05D5\u05D9\u05E7\u05D8...",
+    style: {
+      flex: 1,
+      padding: "8px 12px",
+      background: "#111827",
+      border: "1px solid #1a2540",
+      borderRadius: 8,
+      color: "#fff",
+      fontSize: 13,
+      textAlign: "right",
+      outline: "none"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: saveProject,
+    style: {
+      padding: "8px 14px",
+      borderRadius: 8,
+      border: "none",
+      background: "linear-gradient(135deg,#00b09b,#007055)",
+      color: "#fff",
+      fontWeight: 700,
+      fontSize: 12,
+      cursor: "pointer",
+      whiteSpace: "nowrap"
+    }
+  }, "\uD83D\uDCBE \u05E9\u05DE\u05D5\u05E8")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "8px 18px",
+      borderBottom: "1px solid #1a2540",
+      display: "flex",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: exportProject,
+    style: {
+      flex: 1,
+      padding: "7px",
+      borderRadius: 7,
+      border: "1px solid #1a2540",
+      background: "#111827",
+      color: "#6a7a8a",
+      fontSize: 11,
+      cursor: "pointer",
+      fontWeight: 600
+    }
+  }, "\uD83D\uDCE4 \u05D9\u05D9\u05E6\u05D5\u05D0 .choreo"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => importRef.current?.click(),
+    style: {
+      flex: 1,
+      padding: "7px",
+      borderRadius: 7,
+      border: "1px solid #1a2540",
+      background: "#111827",
+      color: "#6a7a8a",
+      fontSize: 11,
+      cursor: "pointer",
+      fontWeight: 600
+    }
+  }, "\uD83D\uDCE5 \u05D9\u05D9\u05D1\u05D5\u05D0 .choreo"), /*#__PURE__*/React.createElement("input", {
+    ref: importRef,
+    type: "file",
+    accept: ".choreo,application/json",
+    style: {
+      display: "none"
+    },
+    onChange: importProject
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      overflowY: "auto",
+      padding: "8px 18px"
+    }
+  }, projects.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      color: "#2a3a4a",
+      fontSize: 12,
+      padding: 20
+    }
+  }, "\u05D0\u05D9\u05DF \u05E4\u05E8\u05D5\u05D9\u05E7\u05D8\u05D9\u05DD \u05E9\u05DE\u05D5\u05E8\u05D9\u05DD", /*#__PURE__*/React.createElement("br", null), "\u05E9\u05DE\u05D5\u05E8 \u05D0\u05EA \u05D4\u05DB\u05D5\u05E8\u05D0\u05D5\u05D2\u05E8\u05E4\u05D9\u05D4 \u05D4\u05E0\u05D5\u05DB\u05D7\u05D9\u05EA") : projects.map(proj => /*#__PURE__*/React.createElement("div", {
+    key: proj.id,
+    onClick: () => loadProject(proj),
+    style: {
+      padding: "10px 12px",
+      borderRadius: 9,
+      border: "1px solid #1a2540",
+      background: "#111827",
+      cursor: "pointer",
+      marginBottom: 6,
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      transition: "border-color .15s"
+    },
+    onMouseEnter: e => e.currentTarget.style.borderColor = "#f5a623",
+    onMouseLeave: e => e.currentTarget.style.borderColor = "#1a2540"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      color: "#f5a623"
+    }
+  }, proj.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: "#3a5060",
+      marginTop: 2
+    }
+  }, proj.date, " \xB7 ", proj.keyframes?.length || 0, " Q's \xB7 ", proj.editDancers?.length || proj.dancerCount || 0, " \u05E8\u05E7\u05D3\u05E0\u05D9\u05DD")), /*#__PURE__*/React.createElement("button", {
+    onClick: e => deleteProject(proj.id, e),
+    style: {
+      width: 22,
+      height: 22,
+      borderRadius: "50%",
+      border: "none",
+      background: "#2a1010",
+      color: "#e94560",
+      cursor: "pointer",
+      fontSize: 11,
+      flexShrink: 0
+    }
+  }, "\xD7")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "10px 18px",
+      borderTop: "1px solid #1a2540"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setKeyframes([]);
+      setActiveKf(null);
+      setProjectName("פרויקט חדש");
+      const d = makeDancers(dancerCount, formation, stage.w, stage.h);
+      setStageDancers(d);
+      setEditDancers(d);
+      setRenderDancers(d);
+      setShowProjects(false);
+    },
+    style: {
+      width: "100%",
+      padding: "9px",
+      borderRadius: 8,
+      border: "1px solid #e9456044",
+      background: "#1a0810",
+      color: "#e94560",
+      fontWeight: 700,
+      fontSize: 12,
+      cursor: "pointer"
+    }
+  }, "\u2728 \u05E4\u05E8\u05D5\u05D9\u05E7\u05D8 \u05D7\u05D3\u05E9 (\u05E0\u05E7\u05D9)")))));
 }
-window.ChoreoPlan = ChoreoPlan;
+window.ChoreoPlan=ChoreoPlan;
 
   </script>
-
   <script>
-    (function() {
-      try {
-        var root = ReactDOM.createRoot(document.getElementById('root'));
+    (function(){
+      try{
+        var root=ReactDOM.createRoot(document.getElementById('root'));
         root.render(React.createElement(window.ChoreoPlan));
-        setTimeout(function() {
-          var el = document.getElementById('loading');
-          if(el){ el.style.transition='opacity 0.5s'; el.style.opacity='0'; setTimeout(function(){el.remove();},500); }
-        }, 500);
-      } catch(e) {
-        var el = document.getElementById('loading');
-        el.innerHTML = '<div style="color:#e94560;font-family:monospace;padding:20px;font-size:11px;text-align:left;white-space:pre-wrap">Error: ' + e.message + '\n\n' + e.stack + '</div>';
-        console.error(e);
+        setTimeout(function(){
+          var el=document.getElementById('loading');
+          if(el){el.style.transition='opacity 0.5s';el.style.opacity='0';setTimeout(function(){el.remove();},500);}
+        },600);
+      }catch(e){
+        document.getElementById('loading').innerHTML='<div style="color:#e94560;font-family:monospace;padding:20px;font-size:11px;white-space:pre-wrap">Error: '+e.message+'\n\n'+e.stack+'</div>';
       }
     })();
   </script>
-
   <script>
-    if('serviceWorker' in navigator){
-      window.addEventListener('load', function(){
-        navigator.serviceWorker.register('./sw.js').catch(function(){});
-      });
-    }
-    document.addEventListener('touchmove', function(e){
-      if(e.target===document.body||e.target===document.documentElement) e.preventDefault();
-    }, {passive:false});
+    if('serviceWorker' in navigator) window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){});});
+    document.addEventListener('touchmove',function(e){if(e.target===document.body||e.target===document.documentElement)e.preventDefault();},{passive:false});
   </script>
 </body>
 </html>
